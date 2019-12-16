@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# ===========================
+# Script submitted to sbatch to run job on Mila cluster
+#
+# DO NOT SUBMIT ON ITS OWN, submit through submission bash script
+#
+# Hyperparameters following:
+# https://github.com/google/dopamine/blob/master/dopamine/agents/dqn/configs/dqn_nature.gin
+#
+# ===========================
+# Setting up variables
+
+# Define experimental log
+EXP_LOG_PATH=$logpath
+
+OUTPUT_DIR=$outdir
+
+# Temporary directory
+TMP_DIR_PATH="$SLURM_TMPDIR"
+
+# Training variables
+ENV_NAME="MsPacman-v0" # alternatively $vari
+N_EPISODES="1000000"  # Episodes to run
+FRAME_SKIPS="4"  # the agent only sees every k frames
+HISTORY_SIZE="4"  # how many observations to stack for a state
+
+UPDATE_PERIOD="4" # number of action between succcessive SGD updates
+TARGET_UPDATE_PERIOD="10000"  # num of actions between target network update
+
+BUFFER_CAPACITY="50000" #"50000" for normal tests # Buffer capacity (experiences)
+DISCOUNT_FACTOR="0.99"
+MINIBATCH_SIZE="32"
+
+INITIAL_EXPLORATION="1.0"  # initial epsilon
+FINAL_EXPLORATION="0.1"    # final epsilon
+EPS_DECAY_DURATION="1000000"  # linear annearling duration (per action)
+MIN_REPLAY_HISTORY="50000"   # number random actions before replay starts
+
+# VA-VAE specifici
+VQVAE_EMBED_DIM="1"
+VQVAE_RECON_THRESHOLD="15.0" #"15.0"
+VQVAE_SAMPLE_PROB="1.0"   # Normally, 0.5
+VQVAE_BUFFER_CAPACITY=$vari #"200000"
+
+VAE_LATENT_LOSS_WEIGHT="0.25" # default is 0.25
+VAE_FREEZE_STEPS="500000" # how many steps to take before freezing the encoding
+
+WRITE_IMG_PERIOD="10000"
+
+
+
+
+RNG_SEED=$seed
+
+
+# ===========================
+# Experimental set-up
+
+# (1.1) Load packages
+module load python/3.7
+module load cuda/10.1 cuda-10.1/cudnn/7.6
+
+# (1.2) Load environment
+source $HOME/venvs/torchRL/bin/activate
+
+# Show GPU
+nvidia-smi
+
+# (2) no data to copy
+# (3) launch job, (save model in $SLURM_TMPDIR??)
+python -u train_atari_env.py --env-name $ENV_NAME \
+                             --num-episode $N_EPISODES \
+                             --frame-skips $FRAME_SKIPS \
+                             --history-size $HISTORY_SIZE \
+                             --update-period $UPDATE_PERIOD \
+                             --target-update-period $TARGET_UPDATE_PERIOD \
+                             --buffer-capacity $BUFFER_CAPACITY \
+                             --discount-factor $DISCOUNT_FACTOR \
+                             --minibatch-size $MINIBATCH_SIZE \
+                             --init-exploration $INITIAL_EXPLORATION \
+                             --final-exploration $FINAL_EXPLORATION \
+                             --eps-decay-duration $EPS_DECAY_DURATION \
+                             --min-replay-history $MIN_REPLAY_HISTORY \
+                             --seed $RNG_SEED \
+                             --log-path $EXP_LOG_PATH \
+                             --tmpdir $TMP_DIR_PATH \
+                             --vqvae-embed-dim $VQVAE_EMBED_DIM \
+                             --vqvae-recon-threshold $VQVAE_RECON_THRESHOLD \
+                             --vqvae-sample-prob $VQVAE_SAMPLE_PROB \
+                             --vqvae-buffer-capacity $VQVAE_BUFFER_CAPACITY \
+                             --vqvae-latent-loss-weight $VAE_LATENT_LOSS_WEIGHT \
+                             --vqvae-freeze-point $VAE_FREEZE_STEPS \
+                             --write-img-period $WRITE_IMG_PERIOD \
+                             --img-out-path $OUTPUT_DIR \
+
+# (4) Copy things over to scratch?
+# cp $EXP_LOG_PATH /network/tmp1/chenant/tmp/
